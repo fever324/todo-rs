@@ -71,14 +71,14 @@ fn get_new_command() -> Command {
     return get_command(Some(&input));
 }
 
-fn get_user_input()-> String {
+fn get_user_input() -> String {
     let mut line = String::new();
     std::io::stdin().read_line(&mut line).unwrap();
     return line.trim().to_string();
 }
 
 fn get_command(command_str: Option<&str>) -> Command {
-     match command_str.as_deref() {
+    match command_str.as_deref() {
         Some("add") | Some("a") => Command::Add,
         Some("check") | Some("c") => Command::Check,
         Some("uncheck") | Some("u") => Command::Check,
@@ -135,9 +135,9 @@ fn write_to_file(todos: Todos) -> std::io::Result<()> {
 }
 
 fn read_from_file() -> Todos {
-    let content = std::fs::read_to_string(FILE_NAME).unwrap();
+    let content = std::fs::read_to_string(FILE_NAME).unwrap_or_default();
 
-    let deserialized: Todos = serde_json::from_str(&content).unwrap();
+    let deserialized: Todos = serde_json::from_str(&content).unwrap_or(vec![]);
     return deserialized;
 }
 
@@ -155,28 +155,48 @@ fn add_todo(todos: &mut Todos) {
 }
 
 fn check_todo(todos: &mut Todos) {
+    if todos.len() == 0 {
+        return;
+    }
+
     let index = get_operation_index(todos);
-    todos[index as usize].completed = !todos[index as usize].completed;
+    todos[index].completed = !todos[index].completed;
     clear_screen();
 }
 
 fn remove_todo(todos: &mut Todos) {
+    if todos.len() == 0 {
+        return;
+    }
+
     let index = get_operation_index(todos);
-    todos.remove(index as usize);
+    todos.remove(index);
     clear_screen();
 }
 
-fn get_operation_index(todos: &Todos) -> u32 {
+fn get_operation_index(todos: &Todos) -> usize {
     println!("Which one?");
     print_todo(todos, true);
 
-    let line = get_user_input();
-    println!("\n");
+    let mut line = get_user_input();
 
-    return line.parse::<u32>().unwrap();
+    let mut index = line.parse::<usize>().ok();
+    while index == None || index >= Some(todos.len()) {
+        println!("\nInvalid input. Try again");
+        line = get_user_input();
+
+        index = line.parse::<usize>().ok();
+    }
+
+    println!("\n");
+    return index.unwrap();
 }
 
 fn print_todo(todos: &Todos, show_index: bool) {
+    if todos.len() == 0 {
+        println!("[Empty Todo List]");
+    }
+
     for (i, item) in todos.iter().enumerate() {
         let index_str = if show_index {
             i.to_string() + " "
