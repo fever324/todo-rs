@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 
@@ -26,12 +28,13 @@ pub struct Item {
     completed: bool,
 }
 
-impl Item {
-    pub fn to_string(&self) -> String {
+impl Display for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.completed {
-            return format!("[x] {}", &self.name);
+            return write!(f, "[x] {}", &self.name);
         }
-        return format!("[ ] {}", &self.name);
+
+        write!(f, "[ ] {}", &self.name)
     }
 }
 
@@ -52,7 +55,7 @@ fn main() {
     loop {
         let mut todos = read_from_file();
         process_command(command, &mut todos);
-        write_to_file(todos).unwrap();
+        write_to_file(&todos).unwrap();
         command = get_new_command();
     }
 }
@@ -61,14 +64,14 @@ fn get_new_command() -> Command {
     println!("Enter command: ");
     let strs: Vec<String> = USER_COMMANDS
         .iter()
-        .map(|c| " - ".to_owned() + &get_command_string(*c).to_string() + "\n")
+        .map(|c| " - ".to_owned() + &get_command_string(*c) + "\n")
         .collect();
     println!("OPTIONS: \n{}", strs.join(""));
 
     println!("\n");
     let input = get_user_input();
 
-    return get_command(Some(&input));
+    get_command(Some(&input))
 }
 
 fn get_user_input() -> String {
@@ -78,17 +81,16 @@ fn get_user_input() -> String {
 }
 
 fn get_command(command_str: Option<&str>) -> Command {
-    match command_str.as_deref() {
-        Some("add") | Some("a") => Command::Add,
-        Some("check") | Some("c") => Command::Check,
-        Some("uncheck") | Some("u") => Command::Check,
-        Some("remove") | Some("r") => Command::Remove,
-        Some("print") | Some("p") => Command::Print,
-        Some("exit") | Some("e") => Command::Exit,
+    match command_str {
+        Some("add" | "a") => Command::Add,
+        Some("check" | "c" | "uncheck" | "u") => Command::Check,
+        Some("remove" | "r") => Command::Remove,
+        Some("print" | "p") => Command::Print,
+        Some("exit" | "e") => Command::Exit,
         None => Command::Continue,
         _ => {
             println!("No Command called {}", command_str.unwrap());
-            return Command::Continue;
+            Command::Continue
         }
     }
 }
@@ -100,11 +102,11 @@ fn get_command_string(command: Command) -> String {
         Command::Exit => "(e)xit".to_string(),
         Command::Check => "(c)heck/uncheck".to_string(),
         Command::Remove => "(r)emove".to_string(),
-        _ => panic!("Should not happen"),
+        Command::Continue => panic!("Should not happen"),
     }
 }
 
-fn process_command(command: Command, todos: &mut Todos) -> () {
+fn process_command(command: Command, todos: &mut Todos) {
     clear_screen();
     match command {
         Command::Add => {
@@ -129,16 +131,15 @@ fn process_command(command: Command, todos: &mut Todos) -> () {
     }
 }
 
-fn write_to_file(todos: Todos) -> std::io::Result<()> {
-    let serialized = serde_json::to_string(&todos).unwrap();
-    return std::fs::write(FILE_NAME, &serialized);
+fn write_to_file(todos: &Todos) -> std::io::Result<()> {
+    let serialized = serde_json::to_string(todos).unwrap();
+    std::fs::write(FILE_NAME, &serialized)
 }
 
 fn read_from_file() -> Todos {
     let content = std::fs::read_to_string(FILE_NAME).unwrap_or_default();
 
-    let deserialized: Todos = serde_json::from_str(&content).unwrap_or(vec![]);
-    return deserialized;
+    serde_json::from_str(&content).unwrap_or_default()
 }
 
 fn add_todo(todos: &mut Todos) {
@@ -146,7 +147,7 @@ fn add_todo(todos: &mut Todos) {
     let line = get_user_input();
     println!("\n");
     let item = Item {
-        name: line.to_owned(),
+        name: line,
         completed: false,
     };
 
@@ -155,7 +156,7 @@ fn add_todo(todos: &mut Todos) {
 }
 
 fn check_todo(todos: &mut Todos) {
-    if todos.len() == 0 {
+    if todos.is_empty() {
         return;
     }
 
@@ -165,7 +166,7 @@ fn check_todo(todos: &mut Todos) {
 }
 
 fn remove_todo(todos: &mut Todos) {
-    if todos.len() == 0 {
+    if todos.is_empty() {
         return;
     }
 
@@ -181,7 +182,7 @@ fn get_operation_index(todos: &Todos) -> usize {
     let mut line = get_user_input();
 
     let mut index = line.parse::<usize>().ok();
-    while index == None || index >= Some(todos.len()) {
+    while index.is_none() || index >= Some(todos.len()) {
         println!("\nInvalid input. Try again");
         line = get_user_input();
 
@@ -189,11 +190,11 @@ fn get_operation_index(todos: &Todos) -> usize {
     }
 
     println!("\n");
-    return index.unwrap();
+    index.unwrap()
 }
 
 fn print_todo(todos: &Todos, show_index: bool) {
-    if todos.len() == 0 {
+    if todos.is_empty() {
         println!("[Empty Todo List]");
     }
 
@@ -201,10 +202,10 @@ fn print_todo(todos: &Todos, show_index: bool) {
         let index_str = if show_index {
             i.to_string() + " "
         } else {
-            "".to_owned()
+            String::new()
         };
 
-        println!("{}{}", index_str, item.to_string());
+        println!("{}{}", index_str, item);
     }
     println!();
 }
